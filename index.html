@@ -77,7 +77,7 @@ footer{border-top:1px solid var(--line);padding:32px 0;color:var(--mute);font-si
 <body>
 <header><div class="wrap bar">
 <a class="brand" href="#top" aria-label="TryJexora home"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="3" fill="#4B34E8"/><rect x="16" y="2" width="12" height="12" rx="6" fill="#F5A524"/><rect x="2" y="16" width="12" height="12" rx="6" fill="#0E8F4A"/><path d="M22 16l7 12H15z" fill="#E5484D"/></svg>TryJexora</a>
-<nav aria-label="Main"><a href="#numbers">Numbers</a><a href="#visual">Visual</a><a href="#football">Football</a><a href="#daily">Daily</a><a href="#score">Scores</a></nav>
+<nav aria-label="Main"><a href="#numbers">Numbers</a><a href="#visual">Visual</a><a href="#football">Football</a><a href="#daily">Daily</a><a href="#score">Scores</a><a href="#leaderboard">Leaderboard</a></nav>
 <div class="chip" title="Your points"><span data-s="points">0</span> pts</div>
 </div></header>
 
@@ -119,6 +119,18 @@ footer{border-top:1px solid var(--line);padding:32px 0;color:var(--mute);font-si
 <div class="card" id="dly"></div>
 </section>
 
+<section class="sec" id="leaderboard">
+<h2>Global leaderboard</h2>
+<p class="sub">Top scores from TryJexora players around the world.</p>
+<div class="card">
+  <p id="lbstatus" class="sub" role="status" aria-live="polite">Loading global leaderboard…</p>
+  <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:left">
+    <thead><tr><th style="padding:10px;border-bottom:1px solid var(--line)">Rank</th><th style="padding:10px;border-bottom:1px solid var(--line)">Player</th><th style="padding:10px;border-bottom:1px solid var(--line)">Score</th></tr></thead>
+    <tbody id="lbrows"><tr><td colspan="3" style="padding:10px">Loading…</td></tr></tbody>
+  </table></div>
+</div>
+</section>
+
 <section class="sec" id="score">
 <h2>Score tracker</h2>
 <div class="score">
@@ -131,9 +143,37 @@ footer{border-top:1px solid var(--line);padding:32px 0;color:var(--mute);font-si
 </section>
 </div>
 </main>
-<footer><div class="wrap">TryJexora · Original puzzles and quizzes for curious minds everywhere. Your scores are saved only in this browser.</div></footer>
+<footer><div class="wrap">TryJexora · Original puzzles and quizzes for curious minds everywhere. Your personal progress is saved in this browser. Global leaderboard is shared online.</div></footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// TryJexora Supabase public client. Public reads are protected by the table's SELECT RLS policy.
+const SUPABASE_URL = 'https://myoqlzjaqcnqqxhugscx.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Nr7wPingbSnAo6m4ctIPdw_n08btj8X';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+async function loadGlobalLeaderboard(){
+  const status=document.getElementById('lbstatus');
+  const rows=document.getElementById('lbrows');
+  try {
+    const {data,error}=await supabaseClient.from('leaderboard').select('username,score,created_at').order('score',{ascending:false}).order('created_at',{ascending:true}).limit(20);
+    if(error) throw error;
+    if(!data || data.length===0){rows.innerHTML='<tr><td colspan="3" style="padding:10px">No scores yet. Be the first player!</td></tr>';status.textContent='Connected to the global leaderboard.';return;}
+    rows.innerHTML='';
+    data.forEach((entry,index)=>{
+      const tr=document.createElement('tr');
+      [String(index+1),String(entry.username||'Player'),String(entry.score??0)].forEach(value=>{
+        const td=document.createElement('td');td.textContent=value;td.style.padding='10px';td.style.borderBottom='1px solid var(--line)';tr.appendChild(td);
+      });
+      rows.appendChild(tr);
+    });
+    status.textContent='Showing the top '+data.length+' scores.';
+  } catch(err) {
+    console.error('Leaderboard load failed:',err);
+    status.textContent='Could not load leaderboard. Check your Supabase URL, Publishable key and SELECT policy.';
+    rows.innerHTML='<tr><td colspan="3" style="padding:10px">Leaderboard is temporarily unavailable.</td></tr>';
+  }
+}
+loadGlobalLeaderboard();
 const $=(s,e=document)=>e.querySelector(s);
 let S={points:0,correct:0,attempts:0,run:0,best:0,streak:0,last:'',daily:null};
 try{Object.assign(S,JSON.parse(localStorage.getItem('tj1')||'{}'))}catch(e){}
